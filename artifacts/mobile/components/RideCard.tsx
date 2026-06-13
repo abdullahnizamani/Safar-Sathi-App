@@ -11,11 +11,11 @@ import * as Haptics from "expo-haptics";
 import StaticRouteMap from "@/components/StaticRouteMap";
 import { useColors } from "@/hooks/useColors";
 import { type Ride } from "@/data/mockRides";
+import { useAuth } from "@/src/context/AuthContext";
 
 interface Props {
   ride: Ride;
   onBook?: (ride: Ride) => void;
-  onViewStops?: (ride: Ride) => void;
 }
 
 function ProviderAvatar({
@@ -43,17 +43,15 @@ function TransportIcon({ transport }: { transport: string }) {
   return <Feather name="truck" size={13} color="#72727A" />;
 }
 
-export default function RideCard({ ride, onBook, onViewStops }: Props) {
+export default function RideCard({ ride, onBook }: Props) {
   const colors = useColors();
+  const { user } = useAuth();
+
+  const isOwnRide = user && String(user.id) === String(ride.provider.id);
 
   const handleBook = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onBook?.(ride);
-  };
-
-  const handleViewStops = () => {
-    Haptics.selectionAsync();
-    onViewStops?.(ride);
   };
 
   return (
@@ -145,37 +143,30 @@ export default function RideCard({ ride, onBook, onViewStops }: Props) {
           <TransportIcon transport={ride.transport} />
           <Text style={styles.detailText}>{ride.transport}</Text>
         </View>
-        {ride.notes ? (
+        {ride.notes && (
           <View style={styles.detailItem}>
             <Feather name="info" size={13} color="#72727A" />
             <Text style={styles.detailText} numberOfLines={1}>{ride.notes}</Text>
-          </View>
-        ) : (
-          <View style={styles.detailItem}>
-            <Feather name="map-pin" size={13} color="#72727A" />
-            <Text style={styles.detailText}>
-              {ride.stops.length > 0 ? `${ride.stops.length} stop${ride.stops.length > 1 ? "s" : ""}` : "Direct"}
-            </Text>
           </View>
         )}
       </View>
 
       {/* Action Row */}
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.secondaryBtn}
-          onPress={handleViewStops}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.secondaryBtnText}>View Stops</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={handleBook}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.primaryBtnText}>Book</Text>
-        </TouchableOpacity>
+        {isOwnRide ? (
+          <View style={styles.ownRideBadge}>
+            <Feather name="user" size={13} color="#C084FC" />
+            <Text style={styles.ownRideText}>Your Ride</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.primaryBtn}
+            onPress={handleBook}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.primaryBtnText}>Book</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -366,5 +357,22 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontFamily: "Inter_700Bold",
+  },
+  ownRideBadge: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 10,
+    backgroundColor: "#3B126133",
+    borderWidth: 1.5,
+    borderColor: "#6B21A855",
+    paddingVertical: 11,
+  },
+  ownRideText: {
+    color: "#C084FC",
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
   },
 });

@@ -9,18 +9,46 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AuthProvider, useAuth } from "@/src/context/AuthContext";
+import LoginScreen from "@/src/components/LoginScreen";
+import RegisterScreen from "@/src/components/RegisterScreen";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
+  const { user, loading } = useAuth();
+  const [showRegister, setShowRegister] = useState(false);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#0D0D0F", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#A855F7" />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return (
+      <>
+        <StatusBar style="light" backgroundColor="#0D0D0F" />
+        {showRegister ? (
+          <RegisterScreen onToggleLogin={() => setShowRegister(false)} />
+        ) : (
+          <LoginScreen onToggleRegister={() => setShowRegister(true)} />
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       <StatusBar style="light" backgroundColor="#0D0D0F" />
@@ -53,7 +81,9 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0D0D0F" }}>
             <KeyboardProvider>
-              <RootLayoutNav />
+              <AuthProvider>
+                <RootLayoutNav />
+              </AuthProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>
@@ -61,3 +91,4 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+

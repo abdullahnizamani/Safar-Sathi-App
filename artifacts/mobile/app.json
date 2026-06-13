@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "UniRide",
-    "slug": "mobile",
+    "name": "SafarSathi",
+    "slug": "SafarSathi",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -11,14 +11,14 @@
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0D0D0F"
+      "backgroundColor": "#09090b"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#0D0D0F"
+        "backgroundColor": "#09090b"
       },
-      "statusBarColor": "#0D0D0F"
+      "statusBarColor": "#09090b"
     },
     "web": {
       "favicon": "./assets/images/icon.png"

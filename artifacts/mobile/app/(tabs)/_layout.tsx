@@ -7,8 +7,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-function CenterFAB({ onPress }: { onPress?: () => void }) {
+function CenterFAB({ onPress }: { onPress?: (e: any) => void }) {
   return (
     <TouchableOpacity
       style={styles.fab}
@@ -21,6 +22,8 @@ function CenterFAB({ onPress }: { onPress?: () => void }) {
 }
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -31,8 +34,8 @@ export default function TabLayout() {
           backgroundColor: "#111115",
           borderTopWidth: 1,
           borderTopColor: "#1E1E24",
-          height: Platform.OS === "web" ? 84 : 64,
-          paddingBottom: Platform.OS === "web" ? 20 : 8,
+          height: Platform.OS === "web" ? 84 : 60 + insets.bottom,
+          paddingBottom: Platform.OS === "web" ? 20 : insets.bottom,
           paddingTop: 8,
           elevation: 0,
         },
@@ -83,12 +86,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="analytics"
+        name="profile"
         options={{
-          title: "Analytics",
+          title: "Profile",
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons
-              name="chart-line"
+            <Feather
+              name="user"
               size={size ?? 22}
               color={color}
             />

@@ -25,6 +25,8 @@ export interface Ride {
   transport: string;
   stops: RideStop[];
   notes?: string;
+  driverId?: string;
+  transportType?: string;
 }
 
 export const MOCK_RIDES: Ride[] = [

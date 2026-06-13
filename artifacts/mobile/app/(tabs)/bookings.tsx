@@ -1,72 +1,63 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
   Platform,
+  RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, FontAwesome } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { api } from "@/src/lib/api";
 
 const TABS = ["Upcoming", "Past"];
-
-const BOOKINGS = [
-  {
-    id: "b1",
-    from: "FAST National University",
-    to: "DHA Phase 8",
-    driver: "Ali Hassan",
-    driverInitials: "AH",
-    driverColor: "#7C3AED",
-    date: "Mon, Jun 16",
-    time: "8:00 AM",
-    fare: 250,
-    seats: 1,
-    status: "upcoming" as const,
-    passengerCount: 3,
-  },
-  {
-    id: "b2",
-    from: "Karachi University",
-    to: "Defence Phase 5",
-    driver: "Zainab Rauf",
-    driverInitials: "ZR",
-    driverColor: "#F59E0B",
-    date: "Tue, Jun 17",
-    time: "7:45 AM",
-    fare: 300,
-    seats: 1,
-    status: "upcoming" as const,
-    passengerCount: 2,
-  },
-  {
-    id: "b3",
-    from: "IBA Main Campus",
-    to: "Gulshan-e-Iqbal",
-    driver: "Usman Tariq",
-    driverInitials: "UT",
-    driverColor: "#10B981",
-    date: "Sat, Jun 14",
-    time: "9:00 AM",
-    fare: 120,
-    seats: 1,
-    status: "past" as const,
-    passengerCount: 2,
-  },
-];
 
 export default function BookingsScreen() {
   const insets = useSafeAreaInsets();
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const [activeTab, setActiveTab] = useState<"Upcoming" | "Past">("Upcoming");
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const filtered = BOOKINGS.filter((b) =>
-    activeTab === "Upcoming" ? b.status === "upcoming" : b.status === "past"
-  );
+  // Review modal states
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
+  const [selectedRideId, setSelectedRideId] = useState<number | null>(null);
+  const [rating, setRating] = useState<number>(5);
+  const [comment, setComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const fetchBookings = async () => {
+    try {
+      setError(null);
+      const res = await api.get("/requests/my");
+      setBookings(res.data);
+    } catch (err: any) {
+      console.error("Error fetching bookings:", err);
+      setError("Failed to load bookings.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchBookings();
+    setRefreshing(false);
+  };
 
   const handleCancel = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -75,6 +66,97 @@ export default function BookingsScreen() {
       { text: "Cancel Booking", style: "destructive", onPress: () => {} },
     ]);
   };
+
+  const handleSubmitReview = async () => {
+    if (!selectedDriverId || !selectedRideId) return;
+    setSubmittingReview(true);
+    try {
+      const payload: any = {
+        driver_id: Number(selectedDriverId),
+        ride_id: Number(selectedRideId),
+        rating,
+      };
+      if (comment.trim()) {
+        payload.comment = comment.trim();
+      }
+      await api.post("/reviews", payload);
+      Alert.alert("Review Submitted", "Thank you for rating your ride!");
+      setReviewModalVisible(false);
+      setSelectedDriverId(null);
+      setSelectedRideId(null);
+      setRating(5);
+      setComment("");
+      await fetchBookings();
+    } catch (err: any) {
+      console.error("Error submitting review:", err);
+      const msg = err?.response?.data?.error || err?.message || "Failed to submit review.";
+      Alert.alert("Review Failed", msg);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleLeaveReview = (driverId: number, rideId: number) => {
+    setSelectedDriverId(driverId);
+    setSelectedRideId(rideId);
+    setRating(5);
+    setComment("");
+    setReviewModalVisible(true);
+  };
+
+  const mappedBookings = bookings.map((req) => {
+    const ride = req.ride || {};
+    let dateStr = "";
+    let timeStr = "";
+    let isPast = false;
+    try {
+      const depDate = new Date(ride.departure_time);
+      isPast = depDate < new Date() || ride.status === "COMPLETED";
+      dateStr = depDate.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      });
+      timeStr = depDate.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } catch (err) {
+      console.error(err);
+    }
+
+    const colors = ["#7C3AED", "#0EA5E9", "#10B981", "#F59E0B", "#EF4444", "#6366F1"];
+    const colorIndex = (ride.driver_id || 0) % colors.length;
+    const driverColor = colors[colorIndex];
+    const driverInitials = ride.driver_name
+      ? ride.driver_name.slice(0, 2).toUpperCase()
+      : "UN";
+
+    return {
+      id: String(req.id),
+      ride_id: req.ride_id,
+      driver_id: ride.driver_id,
+      from: ride.origin || "Unknown",
+      to: ride.destination || "Unknown",
+      driver: ride.driver_name || "Unknown",
+      driverInitials,
+      driverColor,
+      date: dateStr,
+      time: timeStr,
+      fare: ride.fare || 0,
+      seats: 1,
+      status: isPast ? ("past" as const) : ("upcoming" as const),
+      passengerCount: ride.request_count || 1,
+      reqStatus: req.status || "PENDING",
+      booking: req,
+      reviewed: !!req.reviewed,
+    };
+  });
+
+  const filtered = mappedBookings.filter((b) =>
+    activeTab === "Upcoming" ? b.status === "upcoming" : b.status === "past"
+  );
 
   return (
     <View style={styles.container}>
@@ -98,97 +180,206 @@ export default function BookingsScreen() {
         </View>
       </View>
 
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.list,
-          { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 80 },
-        ]}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            {/* Driver */}
-            <View style={styles.driverRow}>
-              <View style={[styles.driverAvatar, { backgroundColor: item.driverColor + "33", borderColor: item.driverColor + "66" }]}>
-                <Text style={[styles.driverInitials, { color: item.driverColor }]}>{item.driverInitials}</Text>
-              </View>
-              <View style={styles.driverInfo}>
-                <Text style={styles.driverName}>{item.driver}</Text>
-                <View style={styles.passengerRow}>
-                  <Feather name="users" size={11} color="#52525A" />
-                  <Text style={styles.passengerCount}>{item.passengerCount} passengers</Text>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#A855F7" />
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Feather name="alert-circle" size={40} color="#EF4444" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => { setLoading(true); fetchBookings(); }}>
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          extraData={bookings}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.list,
+            { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 80 },
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#7C3AED"
+              colors={["#7C3AED"]}
+            />
+          }
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              {/* Driver */}
+              <View style={styles.driverRow}>
+                <View style={[styles.driverAvatar, { backgroundColor: item.driverColor + "33", borderColor: item.driverColor + "66" }]}>
+                  <Text style={[styles.driverInitials, { color: item.driverColor }]}>{item.driverInitials}</Text>
+                </View>
+                <View style={styles.driverInfo}>
+                  <Text style={styles.driverName}>{item.driver}</Text>
+                  <View style={styles.passengerRow}>
+                    <Feather
+                      name={item.reqStatus === "ACCEPTED" ? "check-circle" : item.reqStatus === "PENDING" ? "clock" : "x-circle"}
+                      size={11}
+                      color={item.reqStatus === "ACCEPTED" ? "#22C55E" : item.reqStatus === "PENDING" ? "#F59E0B" : "#EF4444"}
+                    />
+                    <Text style={[styles.passengerCount, { color: item.reqStatus === "ACCEPTED" ? "#22C55E" : item.reqStatus === "PENDING" ? "#F59E0B" : "#EF4444" }]}>
+                      {item.reqStatus}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.farePill}>
+                  <Text style={styles.fareText}>PKR {item.fare}</Text>
                 </View>
               </View>
-              <View style={styles.farePill}>
-                <Text style={styles.fareText}>PKR {item.fare}</Text>
-              </View>
-            </View>
 
-            {/* Route */}
-            <View style={styles.route}>
-              <View style={styles.routeRow}>
-                <View style={[styles.dot, { backgroundColor: "#22C55E" }]} />
-                <Text style={styles.routeText} numberOfLines={1}>{item.from}</Text>
+              {/* Route */}
+              <View style={styles.route}>
+                <View style={styles.routeRow}>
+                  <View style={[styles.dot, { backgroundColor: "#22C55E" }]} />
+                  <Text style={styles.routeText} numberOfLines={1}>{item.from}</Text>
+                </View>
+                <View style={styles.routeLine} />
+                <View style={styles.routeRow}>
+                  <View style={[styles.dot, { backgroundColor: "#EF4444" }]} />
+                  <Text style={styles.routeText} numberOfLines={1}>{item.to}</Text>
+                </View>
               </View>
-              <View style={styles.routeLine} />
-              <View style={styles.routeRow}>
-                <View style={[styles.dot, { backgroundColor: "#EF4444" }]} />
-                <Text style={styles.routeText} numberOfLines={1}>{item.to}</Text>
-              </View>
-            </View>
 
-            {/* Meta */}
-            <View style={styles.meta}>
-              <View style={styles.metaItem}>
-                <Feather name="calendar" size={12} color="#52525A" />
-                <Text style={styles.metaText}>{item.date} · {item.time}</Text>
+              {/* Meta */}
+              <View style={styles.meta}>
+                <View style={styles.metaItem}>
+                  <Feather name="calendar" size={12} color="#52525A" />
+                  <Text style={styles.metaText}>{item.date} · {item.time}</Text>
+                </View>
+                <View style={styles.metaItem}>
+                  <Feather name="user" size={12} color="#52525A" />
+                  <Text style={styles.metaText}>{item.seats} seat booked</Text>
+                </View>
               </View>
-              <View style={styles.metaItem}>
-                <Feather name="user" size={12} color="#52525A" />
-                <Text style={styles.metaText}>{item.seats} seat booked</Text>
-              </View>
-            </View>
 
-            {item.status === "upcoming" && (
-              <View style={styles.actionRow}>
+              {item.status === "upcoming" && (
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={styles.contactBtn}
+                    onPress={() => {
+                      const phone =
+                        item.booking?.ride?.driver?.phone ||
+                        item.booking?.provider?.phoneNumber ||
+                        item.booking?.driver_phone;
+
+                      Alert.alert(
+                        "Contact Driver",
+                        `Driver: ${item.driver}\nPhone: ${phone ?? "Phone number not provided"}`
+                      );
+                    }}
+                  >
+                    <Feather name="message-square" size={14} color="#A855F7" />
+                    <Text style={styles.contactBtnText}>Contact</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => handleCancel(item.id)}
+                  >
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {item.status === "past" && (
+                item.reviewed ? (
+                  <View style={[styles.reviewBtn, { backgroundColor: "#18181C", borderColor: "#2A2A32" }]}>
+                    <Feather name="check" size={14} color="#72727A" />
+                    <Text style={[styles.reviewBtnText, { color: "#72727A" }]}>Reviewed</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.reviewBtn}
+                    onPress={() => handleLeaveReview(item.driver_id, item.ride_id)}
+                  >
+                    <Feather name="star" size={14} color="#F59E0B" />
+                    <Text style={styles.reviewBtnText}>Leave a Review</Text>
+                  </TouchableOpacity>
+                )
+              )}
+            </View>
+          )}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Feather name="bookmark" size={40} color="#3B1261" />
+              <Text style={styles.emptyTitle}>No {activeTab.toLowerCase()} bookings</Text>
+              <Text style={styles.emptyText}>
+                {activeTab === "Upcoming" ? "Book a ride from the Find tab" : "Your past bookings will appear here"}
+              </Text>
+            </View>
+          }
+        />
+      )}
+
+      {/* Review Modal */}
+      <Modal
+        visible={reviewModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReviewModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Rate Your Experience</Text>
+            
+            <View style={styles.starsContainer}>
+              {[1, 2, 3, 4, 5].map((star) => (
                 <TouchableOpacity
-                  style={styles.contactBtn}
-                  onPress={() => Alert.alert("Contact", `Message ${item.driver}`)}
+                  key={star}
+                  onPress={() => setRating(star)}
+                  activeOpacity={0.7}
+                  style={styles.starTouch}
                 >
-                  <Feather name="message-square" size={14} color="#A855F7" />
-                  <Text style={styles.contactBtnText}>Contact</Text>
+                  <FontAwesome
+                    name={star <= rating ? "star" : "star-o"}
+                    size={32}
+                    color={star <= rating ? "#F59E0B" : "#52525B"}
+                  />
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => handleCancel(item.id)}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              ))}
+            </View>
 
-            {item.status === "past" && (
+            <Text style={styles.modalLabel}>Leave a comment (optional)</Text>
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Tell us about your ride..."
+              placeholderTextColor="#52525A"
+              value={comment}
+              onChangeText={setComment}
+              multiline
+              numberOfLines={4}
+            />
+
+            <View style={styles.modalActions}>
               <TouchableOpacity
-                style={styles.reviewBtn}
-                onPress={() => Alert.alert("Review", "Rate your ride experience")}
+                style={styles.modalCancelBtn}
+                onPress={() => setReviewModalVisible(false)}
+                disabled={submittingReview}
               >
-                <Feather name="star" size={14} color="#F59E0B" />
-                <Text style={styles.reviewBtnText}>Leave a Review</Text>
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
-            )}
+              <TouchableOpacity
+                style={styles.modalSubmitBtn}
+                onPress={handleSubmitReview}
+                disabled={submittingReview}
+              >
+                {submittingReview ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalSubmitBtnText}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Feather name="bookmark" size={40} color="#3B1261" />
-            <Text style={styles.emptyTitle}>No {activeTab.toLowerCase()} bookings</Text>
-            <Text style={styles.emptyText}>
-              {activeTab === "Upcoming" ? "Book a ride from the Find tab" : "Your past bookings will appear here"}
-            </Text>
-          </View>
-        }
-      />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -270,9 +461,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   passengerCount: {
-    color: "#52525A",
     fontSize: 11,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_500Medium",
   },
   farePill: {
     backgroundColor: "#3B1261",
@@ -390,5 +580,120 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    gap: 12,
+  },
+  errorText: {
+    color: "#72727A",
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+  },
+  retryBtn: {
+    backgroundColor: "#3B1261",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#6B21A8",
+  },
+  retryBtnText: {
+    color: "#C084FC",
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 340,
+    backgroundColor: "#18181C",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#2A2A32",
+    padding: 20,
+    gap: 16,
+  },
+  modalTitle: {
+    color: "#F1F1F1",
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
+  starsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginVertical: 4,
+  },
+  starTouch: {
+    padding: 4,
+  },
+  modalLabel: {
+    color: "#72727A",
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  commentInput: {
+    backgroundColor: "#0D0D0F",
+    color: "#F1F1F1",
+    borderWidth: 1,
+    borderColor: "#2A2A32",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 88,
+    textAlignVertical: "top",
+    fontFamily: "Inter_400Regular",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 4,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#2A2A32",
+  },
+  modalCancelBtnText: {
+    color: "#72727A",
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  modalSubmitBtn: {
+    flex: 1,
+    backgroundColor: "#6B21A8",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    paddingVertical: 10,
+  },
+  modalSubmitBtnText: {
+    color: "white",
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
   },
 });
