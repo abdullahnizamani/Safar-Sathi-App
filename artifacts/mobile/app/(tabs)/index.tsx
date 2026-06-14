@@ -14,6 +14,8 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Location from "expo-location";
+import { useRouter } from "expo-router";
 
 import RideCard from "@/components/RideCard";
 import { type Ride } from "@/data/mockRides";
@@ -79,6 +81,7 @@ function mapBackendRide(r: any): Ride {
 
 export default function FindScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [fromSuggestions, setFromSuggestions] = useState<any[]>([]);
@@ -91,11 +94,14 @@ export default function FindScreen() {
   const [shouldFetchFrom, setShouldFetchFrom] = useState(true);
   const [shouldFetchTo, setShouldFetchTo] = useState(true);
 
-  const [activeFilter, setActiveFilter] = useState("All");
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Geolocation states
+  const [locationPermission, setLocationPermission] = useState<Location.PermissionStatus | null>(null);
+  const [deviceCoords, setDeviceCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const fetchRides = async (searchParams?: {
     origin?: string;
@@ -105,6 +111,8 @@ export default function FindScreen() {
     origin_lng?: number;
     dest_lat?: number;
     dest_lng?: number;
+    user_lat?: number;
+    user_lng?: number;
   }) => {
     try {
       setError(null);
@@ -119,6 +127,12 @@ export default function FindScreen() {
       if (searchParams?.dest_lat) queryParams.dest_lat = searchParams.dest_lat;
       if (searchParams?.dest_lng) queryParams.dest_lng = searchParams.dest_lng;
 
+      // Extract user coordinates (passed directly or fall back to deviceCoords state)
+      const uLat = searchParams?.user_lat !== undefined ? searchParams.user_lat : deviceCoords?.latitude;
+      const uLng = searchParams?.user_lng !== undefined ? searchParams.user_lng : deviceCoords?.longitude;
+      if (uLat !== undefined && uLat !== null) queryParams.user_lat = uLat;
+      if (uLng !== undefined && uLng !== null) queryParams.user_lng = uLng;
+
       const res = await api.get("/rides", { params: queryParams });
       const mapped = res.data.map(mapBackendRide);
       setRides(mapped);
@@ -131,7 +145,38 @@ export default function FindScreen() {
   };
 
   useEffect(() => {
-    fetchRides();
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        setLocationPermission(status);
+        if (status === Location.PermissionStatus.GRANTED) {
+          const loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          const coords = {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          };
+          setDeviceCoords(coords);
+          fetchRides({
+            origin: from,
+            destination: to,
+            gender_preference: genderFilter,
+            origin_lat: fromCoords?.lat,
+            origin_lng: fromCoords?.lng,
+            dest_lat: toCoords?.lat,
+            dest_lng: toCoords?.lng,
+            user_lat: coords.latitude,
+            user_lng: coords.longitude,
+          });
+        } else {
+          fetchRides();
+        }
+      } catch (err) {
+        console.error("Error obtaining foreground location permission:", err);
+        fetchRides();
+      }
+    })();
   }, []);
 
   // Debounced Photon fetch for From input
@@ -180,7 +225,9 @@ export default function FindScreen() {
       origin_lat: fromCoords?.lat,
       origin_lng: fromCoords?.lng,
       dest_lat: toCoords?.lat,
-      dest_lng: toCoords?.lng
+      dest_lng: toCoords?.lng,
+      user_lat: deviceCoords?.latitude,
+      user_lng: deviceCoords?.longitude,
     });
   };
 
@@ -193,7 +240,9 @@ export default function FindScreen() {
       origin_lat: fromCoords?.lat,
       origin_lng: fromCoords?.lng,
       dest_lat: toCoords?.lat,
-      dest_lng: toCoords?.lng
+      dest_lng: toCoords?.lng,
+      user_lat: deviceCoords?.latitude,
+      user_lng: deviceCoords?.longitude,
     });
     setRefreshing(false);
   };
@@ -219,10 +268,6 @@ export default function FindScreen() {
       ]
     );
   };
-
-  const displayedRides = activeFilter === "All"
-    ? rides
-    : rides.filter(r => r.transportType?.toLowerCase() === activeFilter.toLowerCase());
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
 
@@ -402,34 +447,16 @@ export default function FindScreen() {
           <Feather name="search" size={15} color="white" />
           <Text style={styles.searchBtnText}>Search Rides</Text>
         </TouchableOpacity>
-
-        {/* Category Filter chips */}
-        <FlatList
-          horizontal
-          data={["All", "Car", "SUV", "Rickshaw"]}
-          keyExtractor={(item) => item}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersContainer}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.filterChip,
-                activeFilter === item && styles.filterChipActive,
-              ]}
-              onPress={() => setActiveFilter(item)}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  activeFilter === item && styles.filterChipTextActive,
-                ]}
-              >
-                {item}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
       </View>
+
+      {locationPermission === "denied" && (
+        <View style={styles.locationWarningBanner}>
+          <Feather name="info" size={14} color="#F59E0B" />
+          <Text style={styles.locationWarningText}>
+            Location services disabled. Showing global rides.
+          </Text>
+        </View>
+      )}
 
       {/* Ride Feed */}
       {loading ? (
@@ -446,17 +473,22 @@ export default function FindScreen() {
         </View>
       ) : (
         <FlatList
-          data={displayedRides}
+          data={rides}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <RideCard ride={item} onBook={handleBook} />
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => router.push(`/ride-details/${item.id}`)}
+            >
+              <RideCard ride={item} onBook={handleBook} />
+            </TouchableOpacity>
           )}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.feedContent,
             { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 80 },
           ]}
-          scrollEnabled={displayedRides.length > 0}
+          scrollEnabled={rides.length > 0}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -474,7 +506,7 @@ export default function FindScreen() {
           }
           ListHeaderComponent={
             <Text style={styles.resultsCount}>
-              {displayedRides.length} ride{displayedRides.length !== 1 ? "s" : ""} available
+              {rides.length} ride{rides.length !== 1 ? "s" : ""} available
             </Text>
           }
         />
@@ -731,5 +763,20 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 13,
     fontFamily: "Inter_700Bold",
+  },
+  locationWarningBanner: {
+    backgroundColor: "#1C1500",
+    borderColor: "#3E2900",
+    borderBottomWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  locationWarningText: {
+    color: "#F59E0B",
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
   },
 });

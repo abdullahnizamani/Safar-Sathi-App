@@ -15,12 +15,14 @@ import {
 import { Feather, FontAwesome } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { api } from "@/src/lib/api";
 
 const TABS = ["Upcoming", "Past"];
 
 export default function BookingsScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const [activeTab, setActiveTab] = useState<"Upcoming" | "Past">("Upcoming");
   const [bookings, setBookings] = useState<any[]>([]);
@@ -211,7 +213,11 @@ export default function BookingsScreen() {
             />
           }
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.card}
+              activeOpacity={0.9}
+              onPress={() => router.push(`/ride-details/${item.ride_id}`)}
+            >
               {/* Driver */}
               <View style={styles.driverRow}>
                 <View style={[styles.driverAvatar, { backgroundColor: item.driverColor + "33", borderColor: item.driverColor + "66" }]}>
@@ -266,9 +272,13 @@ export default function BookingsScreen() {
                     style={styles.contactBtn}
                     onPress={() => {
                       const phone =
+                        item.booking?.driver_phone ||
+                        item.booking?.ride?.driver_phone ||
+                        item.booking?.ride?.driver?.phoneNumber ||
+                        item.booking?.ride?.driver?.phone_number ||
                         item.booking?.ride?.driver?.phone ||
                         item.booking?.provider?.phoneNumber ||
-                        item.booking?.driver_phone;
+                        item.booking?.driver?.phoneNumber;
 
                       Alert.alert(
                         "Contact Driver",
@@ -304,7 +314,7 @@ export default function BookingsScreen() {
                   </TouchableOpacity>
                 )
               )}
-            </View>
+            </TouchableOpacity>
           )}
           ListEmptyComponent={
             <View style={styles.empty}>

@@ -43,11 +43,50 @@ export default function StaticRouteMap({
 
     let cancelled = false;
 
+    async function resolveCoords(input: string): Promise<string | null> {
+      // Check if it's already a coord pair (e.g. "lng,lat" or "lat,lng")
+      const parts = input.split(",");
+      if (parts.length === 2) {
+        const lng = parseFloat(parts[0]);
+        const lat = parseFloat(parts[1]);
+        if (!isNaN(lng) && !isNaN(lat)) {
+          return `${lng},${lat}`;
+        }
+      }
+
+      // If it's a name, geocode it via Photon
+      try {
+        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(input)}&limit=1&countrycode=PK`);
+        const data = await res.json();
+        const coords = data?.features?.[0]?.geometry?.coordinates;
+        if (coords && coords.length === 2) {
+          return `${coords[0]},${coords[1]}`;
+        }
+      } catch (err) {
+        console.error("Error geocoding fallback name:", input, err);
+      }
+      return null;
+    }
+
     async function fetchRoute() {
       try {
+        setLoading(true);
+        setError(false);
+
+        const resolvedOrigin = await resolveCoords(originCoords);
+        const resolvedDest = await resolveCoords(destinationCoords);
+
+        if (cancelled) return;
+
+        if (!resolvedOrigin || !resolvedDest) {
+          setError(true);
+          setLoading(false);
+          return;
+        }
+
         const directionsUrl =
           `https://api.mapbox.com/directions/v5/mapbox/driving/` +
-          `${originCoords};${destinationCoords}` +
+          `${resolvedOrigin};${resolvedDest}` +
           `?geometries=polyline&access_token=${MAPBOX_TOKEN}`;
 
         const res = await fetch(directionsUrl);
@@ -68,7 +107,7 @@ export default function StaticRouteMap({
         const staticUrl =
           `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/` +
           `path-${MAPBOX_ROUTE_WIDTH}+${MAPBOX_ROUTE_COLOR}-${MAPBOX_ROUTE_OPACITY}(${encodedPolyline})/` +
-          `auto/${width}x${height}?access_token=${MAPBOX_TOKEN}&padding=20`;
+          `auto/${width}x${height}@2x?access_token=${MAPBOX_TOKEN}&padding=20`;
 
         setImageUri(staticUrl);
         setLoading(false);
@@ -88,7 +127,7 @@ export default function StaticRouteMap({
 
   if (loading) {
     return (
-      <View style={[styles.container, { height }]}>
+      <View style={[styles.container, { width: "100%", height }]}>
         <ActivityIndicator color="#7C3AED" size="small" />
       </View>
     );
@@ -96,7 +135,7 @@ export default function StaticRouteMap({
 
   if (error || !imageUri) {
     return (
-      <View style={[styles.container, styles.placeholder, { height }]}>
+      <View style={[styles.container, styles.placeholder, { width: "100%", height }]}>
         <Feather name="map" size={20} color="#3B1261" />
         {isPlaceholderToken && (
           <Text style={styles.placeholderText}>Add Mapbox token</Text>
@@ -106,17 +145,18 @@ export default function StaticRouteMap({
   }
 
   return (
-    <Image
-      source={{ uri: imageUri }}
-      style={[styles.image, { height }]}
-      resizeMode="cover"
-    />
+    <View style={[styles.container, { width: "100%", height }]}>
+      <Image
+        source={{ uri: imageUri }}
+        style={[styles.image, { width: "100%", height: "100%" }]}
+        resizeMode="cover"
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    width: "100%",
     borderRadius: 10,
     backgroundColor: "#1a1020",
     alignItems: "center",
@@ -132,7 +172,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
   },
   image: {
-    width: "100%",
     borderRadius: 10,
     overflow: "hidden",
   },
