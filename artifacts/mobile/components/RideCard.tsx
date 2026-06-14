@@ -6,7 +6,6 @@ import {
   View,
 } from "react-native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 
 import StaticRouteMap from "@/components/StaticRouteMap";
 import { useColors } from "@/hooks/useColors";
@@ -15,7 +14,6 @@ import { useAuth } from "@/src/context/AuthContext";
 
 interface Props {
   ride: Ride;
-  onBook?: (ride: Ride) => void;
 }
 
 function ProviderAvatar({
@@ -43,16 +41,11 @@ function TransportIcon({ transport }: { transport: string }) {
   return <Feather name="truck" size={13} color="#72727A" />;
 }
 
-export default function RideCard({ ride, onBook }: Props) {
+export default function RideCard({ ride }: Props) {
   const colors = useColors();
   const { user } = useAuth();
 
   const isOwnRide = user && String(user.id) === String(ride.provider.id);
-
-  const handleBook = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    onBook?.(ride);
-  };
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -68,9 +61,6 @@ export default function RideCard({ ride, onBook }: Props) {
               <Text style={styles.providerName} numberOfLines={1}>
                 {ride.provider.name}
               </Text>
-              {ride.provider.verified && (
-                <Feather name="check-circle" size={13} color="#7C3AED" style={styles.verifiedIcon} />
-              )}
             </View>
             <View style={styles.ratingRow}>
               <Feather name="star" size={10} color="#F59E0B" />
@@ -152,22 +142,14 @@ export default function RideCard({ ride, onBook }: Props) {
       </View>
 
       {/* Action Row */}
-      <View style={styles.actions}>
-        {isOwnRide ? (
+      {isOwnRide && (
+        <View style={styles.actions}>
           <View style={styles.ownRideBadge}>
             <Feather name="user" size={13} color="#C084FC" />
             <Text style={styles.ownRideText}>Your Ride</Text>
           </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={handleBook}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.primaryBtnText}>Book</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      )}
     </View>
   );
 }

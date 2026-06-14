@@ -54,7 +54,6 @@ function mapBackendRide(r: any): Ride {
       id: String(r.driver_id),
       name: r.driver_name || "Unknown",
       initials,
-      verified: true,
       rating: r.driver_avg_rating !== null && r.driver_avg_rating !== undefined ? Number(r.driver_avg_rating) : 5.0,
       avatarColor,
     },

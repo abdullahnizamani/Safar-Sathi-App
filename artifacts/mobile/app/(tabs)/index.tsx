@@ -56,7 +56,6 @@ function mapBackendRide(r: any): Ride {
       id: String(r.driver_id),
       name: r.driver_name || "Unknown",
       initials,
-      verified: true,
       rating: r.driver_avg_rating !== null && r.driver_avg_rating !== undefined ? Number(r.driver_avg_rating) : 5.0,
       avatarColor,
     },
@@ -247,27 +246,6 @@ export default function FindScreen() {
     setRefreshing(false);
   };
 
-  const handleBook = (ride: Ride) => {
-    Alert.alert(
-      "Confirm Booking",
-      `Book a seat with ${ride.provider.name} for ${ride.currency} ${ride.fare}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Confirm",
-          onPress: async () => {
-            try {
-              await api.post("/requests", { ride_id: Number(ride.id) });
-              Alert.alert("Success", "Your booking request has been submitted successfully!");
-            } catch (err: any) {
-              const msg = err?.response?.data?.error || err?.message || "Failed to book ride.";
-              Alert.alert("Booking Failed", msg);
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
 
@@ -277,10 +255,20 @@ export default function FindScreen() {
       <View style={[styles.header, { paddingTop: topPad + 12 }]}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={styles.greeting}>Good morning</Text>
+            <Text style={styles.greeting}>
+              {(() => {
+                const hour = new Date().getHours();
+                if (hour < 12) return "Good morning";
+                if (hour < 18) return "Good afternoon";
+                return "Good evening";
+              })()}
+            </Text>
             <Text style={styles.headerTitle}>Find a Ride</Text>
           </View>
-          <TouchableOpacity style={styles.filterBtn}>
+          <TouchableOpacity
+            style={styles.filterBtn}
+            onPress={() => Alert.alert("Coming Soon", "Advanced filtering is under development.")}
+          >
             <Feather name="sliders" size={18} color="#A855F7" />
           </TouchableOpacity>
         </View>
@@ -480,7 +468,7 @@ export default function FindScreen() {
               activeOpacity={0.9}
               onPress={() => router.push(`/ride-details/${item.id}`)}
             >
-              <RideCard ride={item} onBook={handleBook} />
+              <RideCard ride={item} />
             </TouchableOpacity>
           )}
           showsVerticalScrollIndicator={false}

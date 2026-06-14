@@ -126,7 +126,7 @@ export default function OfferScreen() {
       fare: fareNum,
       transport_type: transport.trim() || "Car",
       gender_preference: genderPreference,
-      notes: notes.trim() || null,
+      notes: notes.trim() || undefined,
       origin_lat: fromCoords ? fromCoords.lat : null,
       origin_lng: fromCoords ? fromCoords.lng : null,
       dest_lat: toCoords ? toCoords.lat : null,

@@ -2,7 +2,7 @@ export interface RideProvider {
   id: string;
   name: string;
   initials: string;
-  verified: boolean;
+  verified?: boolean;
   rating: number;
   avatarColor: string;
 }
