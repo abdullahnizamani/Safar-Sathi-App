@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 
 interface LoginProps {
@@ -53,9 +53,9 @@ export default function LoginScreen({ onToggleRegister }: LoginProps) {
         {/* Logo/Icon Area */}
         <View style={styles.logoContainer}>
           <View style={styles.logoBadge}>
-            <Feather name="navigation" size={32} color="#A855F7" />
+            <Ionicons name="car-outline" size={36} color="#A855F7" />
           </View>
-          <Text style={styles.title}>Safar Sathi</Text>
+          <Text style={styles.title}>SafarSathi</Text>
           <Text style={styles.subtitle}>Asset Carpooling Manager</Text>
         </View>
 

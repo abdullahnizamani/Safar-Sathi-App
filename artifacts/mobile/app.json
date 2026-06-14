@@ -18,7 +18,8 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#09090b"
       },
-      "statusBarColor": "#09090b"
+      "statusBarColor": "#09090b",
+      "package": "com.abdullahniz.SafarSathi"
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -36,6 +37,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7a105ec6-e867-4b12-bda6-ae9cec9f8d14"
+      }
     }
   }
 }

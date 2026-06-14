@@ -10,10 +10,11 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Feather, Ionicons } from "@expo/vector-icons";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider, useAuth } from "@/src/context/AuthContext";
@@ -30,8 +31,14 @@ function RootLayoutNav() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#0D0D0F", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#A855F7" />
+      <View style={{ flex: 1, backgroundColor: "#0D0D0F", justifyContent: "center", alignItems: "center", gap: 16 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <Ionicons name="car-outline" size={48} color="#7C3AED" />
+          <Text style={{ color: "#7C3AED", fontSize: 38, fontFamily: "Inter_700Bold", letterSpacing: -0.5 }}>
+            SafarSathi
+          </Text>
+        </View>
+        <ActivityIndicator size="small" color="#A855F7" style={{ marginTop: 24 }} />
       </View>
     );
   }

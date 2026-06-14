@@ -15,6 +15,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import RideCard from "@/components/RideCard";
+import PassengerTrackerMap from "@/components/PassengerTrackerMap";
 import { type Ride } from "@/data/mockRides";
 import { useAuth } from "@/src/context/AuthContext";
 import { api } from "@/src/lib/api";
@@ -168,6 +169,28 @@ export default function MyRidesScreen() {
     }
   };
 
+  const handleNavigateToPassenger = (lat: number, lng: number, name: string) => {
+    const scheme = Platform.select({
+      ios: "maps:0,0?q=",
+      android: "geo:0,0?q=",
+    });
+    const latLng = `${lat},${lng}`;
+    const label = `${name}'s Location`;
+    const url = Platform.select({
+      ios: `${scheme}${label}@${latLng}`,
+      android: `${scheme}${latLng}(${label})`,
+      web: `https://www.google.com/maps/search/?api=1&query=${latLng}`,
+    });
+
+    if (url) {
+      Linking.openURL(url).catch((err) => {
+        console.error("Error opening maps app:", err);
+        Alert.alert("Error", "Could not open maps application.");
+      });
+    }
+  };
+
+
   const openRides = myRides
     .filter(r => r.status === "OPEN" || r.status === "FULL")
     .sort((a, b) => Number(b.id) - Number(a.id));
@@ -263,6 +286,15 @@ export default function MyRidesScreen() {
               {expandedRideId === item.id && (
                 <View style={styles.requestsSection}>
                   <Text style={styles.requestsTitle}>Passenger Requests</Text>
+
+                  {item.requests && item.requests.filter((r: any) => r.status === "ACCEPTED").length > 0 && (
+                    <PassengerTrackerMap
+                      originCoords={item.origin}
+                      destinationCoords={item.destination}
+                      requests={item.requests.filter((r: any) => r.status === "ACCEPTED")}
+                    />
+                  )}
+
                   {item.requests && item.requests.length > 0 ? (
                     item.requests.map((req: any) => (
                       <View key={req.id} style={styles.requestCard}>
@@ -328,9 +360,18 @@ export default function MyRidesScreen() {
                           </View>
                         )}
 
-                        {/* Accepted actions (Remove Passenger) */}
+                        {/* Accepted actions (Remove/Navigate Passenger) */}
                         {req.status === "ACCEPTED" && item.status !== "COMPLETED" && (
                           <View style={styles.actionsContainer}>
+                            {req.marker_lat != null && req.marker_lng != null && (
+                              <TouchableOpacity
+                                style={[styles.actionBtn, styles.navigateBtn]}
+                                onPress={() => handleNavigateToPassenger(req.marker_lat, req.marker_lng, req.rider_name)}
+                              >
+                                <Feather name="navigation" size={14} color="white" style={{ marginRight: 6 }} />
+                                <Text style={styles.navigateText}>Navigate</Text>
+                              </TouchableOpacity>
+                            )}
                             <TouchableOpacity
                               style={[styles.actionBtn, styles.declineBtn]}
                               onPress={() => {
@@ -551,6 +592,17 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
   },
   declineText: {
+    color: "white",
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+  },
+  navigateBtn: {
+    backgroundColor: "#1D4ED8",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  navigateText: {
     color: "white",
     fontSize: 12,
     fontFamily: "Inter_700Bold",

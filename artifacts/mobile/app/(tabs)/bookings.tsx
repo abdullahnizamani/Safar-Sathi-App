@@ -16,7 +16,9 @@ import { Feather, FontAwesome } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import * as Location from "expo-location";
 import { api } from "@/src/lib/api";
+
 
 const TABS = ["Upcoming", "Past"];
 
@@ -37,6 +39,48 @@ export default function BookingsScreen() {
   const [rating, setRating] = useState<number>(5);
   const [comment, setComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [updatingLocationId, setUpdatingLocationId] = useState<string | null>(null);
+
+  const handleShareLocation = async (id: string, isUpdate: boolean) => {
+    setUpdatingLocationId(id);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Denied", "Permission to access location is required to share your marker.");
+        return;
+      }
+
+      let location = await Location.getLastKnownPositionAsync();
+      const FIVE_MINUTES = 5 * 60 * 1000;
+      if (!location || (Date.now() - location.timestamp) > FIVE_MINUTES) {
+        location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+      }
+
+      const { latitude, longitude } = location.coords;
+      await api.post(`/requests/${id}/marker`, {
+        lat: latitude,
+        lng: longitude,
+      });
+
+      Alert.alert(
+        "Location Shared",
+        isUpdate
+          ? "Your location marker has been updated successfully!"
+          : "Your location marker has been shared with the driver!"
+      );
+      await fetchBookings();
+    } catch (err: any) {
+      console.error("Error sharing location:", err);
+      const msg = err?.response?.data?.error || err?.message || "Failed to share location marker.";
+      Alert.alert("Error", msg);
+    } finally {
+      setUpdatingLocationId(null);
+    }
+  };
+
 
   const fetchBookings = async () => {
     try {
@@ -288,6 +332,33 @@ export default function BookingsScreen() {
                   <Text style={styles.metaText}>{item.seats} seat{item.seats !== 1 ? "s" : ""} booked</Text>
                 </View>
               </View>
+
+              {item.status === "upcoming" && item.reqStatus === "ACCEPTED" && (
+                <View style={{ marginBottom: 4 }}>
+                  {item.booking?.marker_lat != null && (
+                    <Text style={styles.markerTimestamp}>
+                      Marker: {item.booking.marker_lat.toFixed(4)}, {item.booking.marker_lng.toFixed(4)}
+                      {item.booking.marker_updated_at ? ` (Updated ${new Date(item.booking.marker_updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})` : ''}
+                    </Text>
+                  )}
+                  <TouchableOpacity
+                    style={styles.locationBtn}
+                    disabled={updatingLocationId === item.id}
+                    onPress={() => handleShareLocation(item.id, item.booking?.marker_lat != null)}
+                  >
+                    {updatingLocationId === item.id ? (
+                      <ActivityIndicator size="small" color="#D1FAE5" />
+                    ) : (
+                      <>
+                        <Feather name="map-pin" size={14} color="#D1FAE5" />
+                        <Text style={styles.locationBtnText}>
+                          {item.booking?.marker_lat != null ? "Update Location Marker" : "Share Location Marker"}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {item.status === "upcoming" && (item.reqStatus === "ACCEPTED" || item.reqStatus === "PENDING") && (
                 <View style={styles.actionRow}>
@@ -729,4 +800,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_700Bold",
   },
+  locationBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#065F46",
+    borderRadius: 8,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#059669",
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  locationBtnText: {
+    color: "#D1FAE5",
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  markerTimestamp: {
+    color: "#A1A1AA",
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    marginBottom: 6,
+    marginTop: 2,
+  },
 });
+

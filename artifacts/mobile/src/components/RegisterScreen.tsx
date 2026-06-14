@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 
 interface RegisterProps {
@@ -77,9 +77,9 @@ export default function RegisterScreen({ onToggleLogin }: RegisterProps) {
         {/* Logo/Icon Area */}
         <View style={styles.logoContainer}>
           <View style={styles.logoBadge}>
-            <Feather name="navigation" size={28} color="#A855F7" />
+            <Ionicons name="car-outline" size={32} color="#A855F7" />
           </View>
-          <Text style={styles.title}>Join Safar Sathi</Text>
+          <Text style={styles.title}>Join SafarSathi</Text>
           <Text style={styles.subtitle}>Create your account to start carpooling</Text>
         </View>
 
@@ -163,17 +163,40 @@ export default function RegisterScreen({ onToggleLogin }: RegisterProps) {
           </View>
 
           <Text style={styles.label}>Gender</Text>
-          <View style={styles.inputContainer}>
-            <Feather name="smile" size={15} color="#72727A" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Male, Female"
-              placeholderTextColor="#52525A"
-              value={gender}
-              onChangeText={setGender}
-              autoCorrect={false}
-              editable={!submitting}
-            />
+          <View style={styles.genderRow}>
+            {[
+              { key: "M", label: "Male", icon: "user" as const },
+              { key: "F", label: "Female", icon: "user" as const },
+              { key: "O", label: "Other", icon: "smile" as const },
+            ].map((option) => (
+              <TouchableOpacity
+                key={option.key}
+                style={[
+                  styles.genderChip,
+                  gender === option.key && styles.genderChipActive,
+                ]}
+                onPress={() => {
+                  if (!submitting) {
+                    setGender(option.key);
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <Feather
+                  name={option.icon}
+                  size={14}
+                  color={gender === option.key ? "#C084FC" : "#72727A"}
+                />
+                <Text
+                  style={[
+                    styles.genderChipText,
+                    gender === option.key && styles.genderChipTextActive,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
           {error && (
@@ -249,6 +272,36 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 14,
+  },
+  genderRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+  },
+  genderChip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#18181C",
+    borderWidth: 1,
+    borderColor: "#2A2A32",
+    borderRadius: 12,
+    paddingVertical: 12,
+    gap: 6,
+    height: 48,
+  },
+  genderChipActive: {
+    backgroundColor: "#3B126133",
+    borderColor: "#6B21A8",
+  },
+  genderChipText: {
+    color: "#72727A",
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  genderChipTextActive: {
+    color: "#C084FC",
   },
   label: {
     color: "#E4E4E7",
