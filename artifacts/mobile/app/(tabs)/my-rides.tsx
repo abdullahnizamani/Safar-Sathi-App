@@ -169,8 +169,14 @@ export default function MyRidesScreen() {
     }
   };
 
-  const openRides = myRides.filter(r => r.status === "OPEN" || r.status === "FULL");
-  const completedRides = myRides.filter(r => r.status === "COMPLETED");
+  const openRides = myRides
+    .filter(r => r.status === "OPEN" || r.status === "FULL")
+    .sort((a, b) => Number(b.id) - Number(a.id));
+
+  const completedRides = myRides
+    .filter(r => r.status === "COMPLETED")
+    .sort((a, b) => Number(b.id) - Number(a.id));
+
   const displayedRides = activeTab === "Active" ? openRides : completedRides;
 
   return (
@@ -267,7 +273,7 @@ export default function MyRidesScreen() {
                             {req.rider_university ? (
                               <Text style={styles.riderUni}>{req.rider_university}</Text>
                             ) : null}
-                            <Text style={styles.riderGender}>Gender: {req.rider_gender}</Text>
+                            <Text style={styles.riderGender}>Gender: {req.rider_gender} · {req.requested_seats || 1} seat{req.requested_seats !== 1 ? "s" : ""}</Text>
                           </View>
                           <View style={styles.statusBadge}>
                             <Text style={[
@@ -306,7 +312,7 @@ export default function MyRidesScreen() {
                         )}
 
                         {/* Pending actions */}
-                        {req.status === "PENDING" && (
+                        {req.status === "PENDING" && item.status !== "COMPLETED" && (
                           <View style={styles.actionsContainer}>
                             <TouchableOpacity
                               style={[styles.actionBtn, styles.acceptBtn]}
@@ -319,6 +325,27 @@ export default function MyRidesScreen() {
                               onPress={() => handleUpdateRequest(req.id, "REJECTED")}
                             >
                               <Text style={styles.declineText}>Decline</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+
+                        {/* Accepted actions (Remove Passenger) */}
+                        {req.status === "ACCEPTED" && item.status !== "COMPLETED" && (
+                          <View style={styles.actionsContainer}>
+                            <TouchableOpacity
+                              style={[styles.actionBtn, styles.declineBtn]}
+                              onPress={() => {
+                                Alert.alert(
+                                  "Remove Passenger",
+                                  `Are you sure you want to remove ${req.rider_name} from this ride?`,
+                                  [
+                                    { text: "Cancel", style: "cancel" },
+                                    { text: "Remove", style: "destructive", onPress: () => handleUpdateRequest(req.id, "REJECTED") }
+                                  ]
+                                );
+                              }}
+                            >
+                              <Text style={styles.declineText}>Remove Passenger</Text>
                             </TouchableOpacity>
                           </View>
                         )}

@@ -188,7 +188,7 @@ export default function FindScreen() {
     }
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(from)}&limit=4&countrycode=PK`);
+        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(from)}&limit=4&countrycode=PK&lang=en`);
         const data = await res.json();
         setFromSuggestions(data.features || []);
       } catch (err) {
@@ -207,7 +207,7 @@ export default function FindScreen() {
     }
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(to)}&limit=4&countrycode=PK`);
+        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(to)}&limit=4&countrycode=PK&lang=en`);
         const data = await res.json();
         setToSuggestions(data.features || []);
       } catch (err) {
@@ -310,7 +310,7 @@ export default function FindScreen() {
             </View>
             {fromSuggestions.length > 0 && (
               <View style={styles.suggestionsContainer}>
-                <ScrollView keyboardShouldPersistTaps="handled">
+                <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
                   {fromSuggestions.map((item, idx) => {
                     const name = item.properties.name || "";
                     const city = item.properties.city || "";
@@ -373,7 +373,7 @@ export default function FindScreen() {
             </View>
             {toSuggestions.length > 0 && (
               <View style={styles.suggestionsContainer}>
-                <ScrollView keyboardShouldPersistTaps="handled">
+                <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
                   {toSuggestions.map((item, idx) => {
                     const name = item.properties.name || "";
                     const city = item.properties.city || "";
@@ -656,21 +656,13 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   suggestionsContainer: {
-    position: "absolute",
-    top: 60,
-    left: 0,
-    right: 0,
     backgroundColor: "#1E1E24",
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#2A2A32",
     maxHeight: 180,
+    marginTop: 6,
     zIndex: 50,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 5,
-    elevation: 5,
   },
   suggestionItem: {
     flexDirection: "row",

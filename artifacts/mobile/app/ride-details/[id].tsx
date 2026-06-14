@@ -58,6 +58,7 @@ export default function RideDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSeats, setSelectedSeats] = useState(1);
 
   const activePhoneNumber =
     ride?.driver_phone ||
@@ -112,7 +113,7 @@ export default function RideDetailsScreen() {
 
     Alert.alert(
       "Confirm Booking",
-      `Are you sure you want to book a seat on this ride for PKR ${ride.fare}?`,
+      `Are you sure you want to book ${selectedSeats} seat${selectedSeats > 1 ? "s" : ""} on this ride for PKR ${ride.fare * selectedSeats}?`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -120,7 +121,10 @@ export default function RideDetailsScreen() {
           onPress: async () => {
             try {
               setBookingLoading(true);
-              await api.post("/requests", { ride_id: Number(ride.id) });
+              await api.post("/requests", { 
+                ride_id: Number(ride.id),
+                requested_seats: selectedSeats
+              });
               setBookingStatus("PENDING");
               Alert.alert(
                 "Booking Requested",
@@ -348,6 +352,33 @@ export default function RideDetailsScreen() {
 
       {/* Floating Action Button Bar */}
       <View style={[styles.actionBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        {!(isOwnRide || bookingStatus || ride.available_seats === 0) && (
+          <View style={styles.seatsSelectRow}>
+            <Text style={styles.seatsSelectLabel}>Seats to Request:</Text>
+            <View style={styles.counterContainer}>
+              <TouchableOpacity
+                style={styles.counterBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedSeats(prev => Math.max(1, prev - 1));
+                }}
+              >
+                <Feather name="minus" size={14} color="white" />
+              </TouchableOpacity>
+              <Text style={styles.counterText}>{selectedSeats}</Text>
+              <TouchableOpacity
+                style={styles.counterBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedSeats(prev => Math.min(ride.available_seats, prev + 1));
+                }}
+              >
+                <Feather name="plus" size={14} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {isOwnRide ? (
           <View style={styles.ownRideBadge}>
             <Feather name="user" size={15} color="#C084FC" />
@@ -673,5 +704,42 @@ const styles = StyleSheet.create({
     color: "#EF4444",
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+  },
+  seatsSelectRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  seatsSelectLabel: {
+    color: "#D4D4D8",
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  counterContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#18181C",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#2A2A32",
+    padding: 4,
+    gap: 12,
+  },
+  counterBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: "#2A2A32",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  counterText: {
+    color: "#F1F1F1",
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    minWidth: 20,
+    textAlign: "center",
   },
 });

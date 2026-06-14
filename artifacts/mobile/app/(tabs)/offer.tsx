@@ -33,6 +33,7 @@ export default function OfferScreen() {
   const [fare, setFare] = useState("");
   const [transport, setTransport] = useState("Car");
   const [notes, setNotes] = useState("");
+  const [genderPreference, setGenderPreference] = useState<"ANY" | "MALE" | "FEMALE">("ANY");
   const [loading, setLoading] = useState(false);
 
   // Autocomplete states
@@ -52,7 +53,7 @@ export default function OfferScreen() {
     }
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(from)}&limit=5&countrycode=PK`);
+        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(from)}&limit=5&countrycode=PK&lang=en`);
         const data = await res.json();
         setFromSuggestions(data.features || []);
       } catch (err) {
@@ -71,7 +72,7 @@ export default function OfferScreen() {
     }
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(to)}&limit=5&countrycode=PK`);
+        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(to)}&limit=5&countrycode=PK&lang=en`);
         const data = await res.json();
         setToSuggestions(data.features || []);
       } catch (err) {
@@ -124,7 +125,8 @@ export default function OfferScreen() {
       available_seats: seatsNum,
       fare: fareNum,
       transport_type: transport.trim() || "Car",
-      gender_preference: "ANY",
+      gender_preference: genderPreference,
+      notes: notes.trim() || null,
       origin_lat: fromCoords ? fromCoords.lat : null,
       origin_lng: fromCoords ? fromCoords.lng : null,
       dest_lat: toCoords ? toCoords.lat : null,
@@ -150,6 +152,7 @@ export default function OfferScreen() {
             setSeats("4");
             setFare("");
             setTransport("Car");
+            setGenderPreference("ANY");
             setNotes("");
             // Reset navigation back to feed
             router.replace("/(tabs)");
@@ -206,7 +209,7 @@ export default function OfferScreen() {
               </View>
               {fromSuggestions.length > 0 && (
                 <View style={styles.suggestionsContainer}>
-                  <ScrollView keyboardShouldPersistTaps="handled">
+                  <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
                     {fromSuggestions.map((item, idx) => {
                       const name = item.properties.name || "";
                       const city = item.properties.city || "";
@@ -269,7 +272,7 @@ export default function OfferScreen() {
               </View>
               {toSuggestions.length > 0 && (
                 <View style={styles.suggestionsContainer}>
-                  <ScrollView keyboardShouldPersistTaps="handled">
+                  <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
                     {toSuggestions.map((item, idx) => {
                       const name = item.properties.name || "";
                       const city = item.properties.city || "";
@@ -397,6 +400,45 @@ export default function OfferScreen() {
                 onChangeText={setTransport}
               />
             </View>
+          </View>
+        </View>
+
+        {/* Gender Preference */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Gender Preference</Text>
+          <View style={styles.genderRow}>
+            {[
+              { key: "ANY", label: "Any", icon: "users" as const },
+              { key: "MALE", label: "Male Only", icon: "user" as const },
+              { key: "FEMALE", label: "Female Only", icon: "user" as const },
+            ].map((option) => (
+              <TouchableOpacity
+                key={option.key}
+                style={[
+                  styles.genderChip,
+                  genderPreference === option.key && styles.genderChipActive,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setGenderPreference(option.key as any);
+                }}
+                activeOpacity={0.8}
+              >
+                <Feather
+                  name={option.icon}
+                  size={14}
+                  color={genderPreference === option.key ? "#C084FC" : "#72727A"}
+                />
+                <Text
+                  style={[
+                    styles.genderChipText,
+                    genderPreference === option.key && styles.genderChipTextActive,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
@@ -579,21 +621,13 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
   },
   suggestionsContainer: {
-    position: "absolute",
-    top: 40,
-    left: 0,
-    right: 0,
     backgroundColor: "#1E1E24",
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#2A2A32",
     maxHeight: 180,
+    marginTop: 6,
     zIndex: 50,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 5,
-    elevation: 5,
   },
   suggestionItem: {
     flexDirection: "row",
@@ -614,5 +648,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_400Regular",
     marginTop: 2,
+  },
+  genderRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  genderChip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#18181C",
+    borderWidth: 1,
+    borderColor: "#2A2A32",
+    borderRadius: 10,
+    paddingVertical: 12,
+    gap: 6,
+  },
+  genderChipActive: {
+    backgroundColor: "#3B126133",
+    borderColor: "#6B21A8",
+  },
+  genderChipText: {
+    color: "#72727A",
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  genderChipTextActive: {
+    color: "#C084FC",
   },
 });

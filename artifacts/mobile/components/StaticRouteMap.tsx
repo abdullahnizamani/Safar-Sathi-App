@@ -56,7 +56,7 @@ export default function StaticRouteMap({
 
       // If it's a name, geocode it via Photon
       try {
-        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(input)}&limit=1&countrycode=PK`);
+        const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(input)}&limit=1&countrycode=PK&lang=en`);
         const data = await res.json();
         const coords = data?.features?.[0]?.geometry?.coordinates;
         if (coords && coords.length === 2) {

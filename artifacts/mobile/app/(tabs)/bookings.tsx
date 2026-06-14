@@ -65,7 +65,21 @@ export default function BookingsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert("Cancel Booking", "Are you sure you want to cancel this booking?", [
       { text: "Keep", style: "cancel" },
-      { text: "Cancel Booking", style: "destructive", onPress: () => {} },
+      {
+        text: "Cancel Booking",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await api.patch(`/requests/${id}`, { status: "CANCELLED" });
+            Alert.alert("Cancelled", "Your booking has been cancelled.");
+            await fetchBookings();
+          } catch (err: any) {
+            console.error("Error cancelling booking:", err);
+            const msg = err?.response?.data?.error || err?.message || "Failed to cancel booking.";
+            Alert.alert("Error", msg);
+          }
+        }
+      },
     ]);
   };
 
@@ -113,7 +127,7 @@ export default function BookingsScreen() {
     let isPast = false;
     try {
       const depDate = new Date(ride.departure_time);
-      isPast = depDate < new Date() || ride.status === "COMPLETED";
+      isPast = depDate < new Date() || ride.status === "COMPLETED" || req.status === "CANCELLED" || req.status === "REJECTED";
       dateStr = depDate.toLocaleDateString("en-US", {
         weekday: "short",
         month: "short",
@@ -147,7 +161,7 @@ export default function BookingsScreen() {
       date: dateStr,
       time: timeStr,
       fare: ride.fare || 0,
-      seats: 1,
+      seats: req.requested_seats || 1,
       status: isPast ? ("past" as const) : ("upcoming" as const),
       passengerCount: ride.request_count || 1,
       reqStatus: req.status || "PENDING",
@@ -159,6 +173,15 @@ export default function BookingsScreen() {
   const filtered = mappedBookings.filter((b) =>
     activeTab === "Upcoming" ? b.status === "upcoming" : b.status === "past"
   );
+
+  // If showing Past bookings, sort non-reviewed ones to the top
+  if (activeTab === "Past") {
+    filtered.sort((a, b) => {
+      if (!a.reviewed && b.reviewed) return -1;
+      if (a.reviewed && !b.reviewed) return 1;
+      return 0;
+    });
+  }
 
   return (
     <View style={styles.container}>
@@ -262,11 +285,11 @@ export default function BookingsScreen() {
                 </View>
                 <View style={styles.metaItem}>
                   <Feather name="user" size={12} color="#52525A" />
-                  <Text style={styles.metaText}>{item.seats} seat booked</Text>
+                  <Text style={styles.metaText}>{item.seats} seat{item.seats !== 1 ? "s" : ""} booked</Text>
                 </View>
               </View>
 
-              {item.status === "upcoming" && (
+              {item.status === "upcoming" && (item.reqStatus === "ACCEPTED" || item.reqStatus === "PENDING") && (
                 <View style={styles.actionRow}>
                   <TouchableOpacity
                     style={styles.contactBtn}
